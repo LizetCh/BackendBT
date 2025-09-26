@@ -8,11 +8,7 @@ categories_bp = Blueprint('categories', __name__)
 
 
 @categories_bp.route('/new', methods=['POST'])
-<<<<<<< HEAD
 def create_category():
-=======
-def new_category():
->>>>>>> main
     # obtener datos
     data = request.get_json()
 

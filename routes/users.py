@@ -14,9 +14,13 @@ def serialize_doc(doc):
         doc['_id'] = str(doc['_id'])
     return doc
 
-# CREAR USUARIO - en la colección 'usuarios'
+#crear usuario
+
 @users_bp.route('/create', methods=['POST'])
 def create_user():
+    data= request.get_json()
+
+    #obtener base de datos
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
@@ -50,7 +54,6 @@ def create_user():
             "updated_at": datetime.utcnow()
         }
 
-        # ✅ INSERTAR en la colección 'usuarios'
         result = db.usuarios.insert_one(user_doc)
         new_user = db.usuarios.find_one({"_id": result.inserted_id})
 

@@ -26,6 +26,9 @@ def create_user():
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password")
+    role = (data.get("role") or "user").strip()
+    if role not in ["user", "admin"]:
+        role = "user"
 
     if not all([name, email, password]):
         return jsonify({"error": "name, email y password son requeridos"}), 400
@@ -44,7 +47,7 @@ def create_user():
             "rating_avg": 0.0,
             "rating_count": 0,
             "hours_balance": 0.0,
-            "role": "user",
+            "role": role,
             "is_active": True,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
@@ -304,3 +307,45 @@ def recover_password():
         
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
+
+#_____________Agregar horas al usuario, solo para pruebas :)______
+@users_bp.route('/add-hours', methods=['POST'])
+def add_hours():
+    db = get_db()
+    if db is None:
+        return jsonify({"error": "Base de datos no disponible"}), 500
+
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    hours_to_add = data.get("hours")
+
+    if not user_id or hours_to_add is None:
+        return jsonify({"error": "Se requieren 'user_id' y 'hours'"}), 400
+
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+    try:
+        hours_float = float(hours_to_add)
+        if hours_float <= 0:
+            return jsonify({"error": "Las horas a agregar deben ser mayores a 0"}), 400
+    except ValueError:
+        return jsonify({"error": "El valor de horas debe ser numérico"}), 400
+
+    user = db.usuarios.find_one({"_id": user_obj_id})
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    db.usuarios.update_one(
+        {"_id": user_obj_id},
+        {"$inc": {"hours_balance": hours_float}}
+    )
+
+    updated_user = db.usuarios.find_one({"_id": user_obj_id})
+
+    return jsonify({
+        "message": f"Se agregaron {hours_float} horas a {updated_user['name']}",
+        "user": serialize_user_safe(updated_user)
+    }), 200

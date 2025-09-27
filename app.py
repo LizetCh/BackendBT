@@ -3,6 +3,9 @@ import os
 from dotenv import load_dotenv
 from routes.categories import categories_bp
 from routes.users import users_bp
+from routes.services import services_bp
+from routes.test_db import test_bp
+from routes.transactions import transactions_bp
 from flask_jwt_extended import JWTManager 
 from flask_cors import CORS
 
@@ -20,6 +23,10 @@ def create_app():
 
     app.register_blueprint(categories_bp, url_prefix='/categories')
     app.register_blueprint(users_bp, url_prefix='/api/users')
+    app.register_blueprint(services_bp, url_prefix='/api/services')
+    app.register_blueprint(transactions_bp, url_prefix='/api/transactions')
+    #Prueba la conexión a la db
+    app.register_blueprint(test_bp, url_prefix='/api/test')
 
     return app
 

@@ -50,8 +50,11 @@ def get_categories():
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    # obtener categorias sin imprimir _id
-    categories = list(db.categories.find({}, {'_id': 0}))
+    categories = list(db.categories.find({}))
+    
+    # Convertir ObjectId a string para JSON
+    for category in categories:
+        category['_id'] = str(category['_id'])
 
     return jsonify(categories), 200
 

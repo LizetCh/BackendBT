@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from config.db import get_db
+from bson import ObjectId 
 
 # Crear blueprint
 reviews_bp = Blueprint('reviews', __name__)
@@ -26,29 +27,39 @@ def new_review():
     if not service_id or not user_id or not rating or not comment:
         return jsonify({"error": "Faltan datos para crear la reseña"}), 400
 
+    try:
+        # Validar que los IDs sean ObjectIds válidos
+        service_obj_id = ObjectId(service_id)
+        user_obj_id = ObjectId(user_id)
+    except:
+        return jsonify({"error": "IDs inválidos"}), 400
+
     # checar si existe el usuario
-    if not db.users.find_one({"user_id": user_id}):
+    if not db.users.find_one({"_id": user_obj_id}):
         return jsonify({"error": "El usuario no existe"}), 400
 
-    # checar si existe el servicio
-    if not db.services.find_one({"service_id": service_id}):
+    # checar si existe el servicio (CORREGIDO: _id no service_id)
+    if not db.services.find_one({"_id": service_obj_id}):
         return jsonify({"error": "El servicio no existe"}), 400
 
     # checar que el rating esté entre 1 y 5
     if rating < 1 or rating > 5:
         return jsonify({"error": "El rating debe estar entre 1 y 5"}), 400
 
-    # crear review
+    # crear review (USANDO ObjectIds)
     review = {
-        "service_id": service_id,
-        "user_id": user_id,
+        "service_id": service_obj_id,
+        "user_id": user_obj_id,
         "rating": rating,
         "comment": comment
     }
 
-    db.reviews.insert_one(review)
+    result = db.reviews.insert_one(review)
 
-    return jsonify({"mensaje": "Reseña creada"}), 201
+    return jsonify({
+        "mensaje": "Reseña creada",
+        "review_id": str(result.inserted_id)
+    }), 201
 
 
 # obtener reviews de un servicio
@@ -60,12 +71,22 @@ def get_reviews_by_service(service_id):
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    # checar si existe el servicio
-    if not db.services.find_one({"service_id": service_id}):
+    try:
+        service_obj_id = ObjectId(service_id)
+    except:
+        return jsonify({"error": "ID de servicio inválido"}), 400
+
+    # checar si existe el servicio (CORREGIDO)
+    if not db.services.find_one({"_id": service_obj_id}):
         return jsonify({"error": "El servicio no existe"}), 400
 
-    # obtener reviews sin imprimir _id
-    reviews = list(db.reviews.find({"service_id": service_id}, {'_id': 0}))
+    # obtener reviews (USANDO ObjectId)
+    reviews = list(db.reviews.find({"service_id": service_obj_id}, {'_id': 0}))
+
+    # Convertir ObjectIds a strings para JSON
+    for review in reviews:
+        review['service_id'] = str(review['service_id'])
+        review['user_id'] = str(review['user_id'])
 
     return jsonify(reviews), 200
 
@@ -79,18 +100,26 @@ def get_reviews_by_user(user_id):
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    # checar si existe el usuario
-    if not db.users.find_one({"user_id": user_id}):
+    try:
+        user_obj_id = ObjectId(user_id)
+    except:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+    # checar si existe el usuario (CORREGIDO)
+    if not db.users.find_one({"_id": user_obj_id}):
         return jsonify({"error": "El usuario no existe"}), 400
 
-    # obtener reviews sin imprimir _id
-    reviews = list(db.reviews.find({"user_id": user_id}, {'_id': 0}))
+    # obtener reviews (USANDO ObjectId)
+    reviews = list(db.reviews.find({"user_id": user_obj_id}, {'_id': 0}))
+
+    # Convertir ObjectIds a strings para JSON
+    for review in reviews:
+        review['service_id'] = str(review['service_id'])
+        review['user_id'] = str(review['user_id'])
 
     return jsonify(reviews), 200
 
 # update review
-
-
 @reviews_bp.route('/<review_id>', methods=['PUT'])
 def update_review(review_id):
     # obtener datos
@@ -109,19 +138,22 @@ def update_review(review_id):
     if not rating or not comment:
         return jsonify({"error": "Faltan datos para actualizar la reseña"}), 400
 
-    # checar si existe el id
-    if not db.reviews.find_one({"_id": review_id}):
+    try:
+        review_obj_id = ObjectId(review_id)
+    except:
+        return jsonify({"error": "ID de reseña inválido"}), 400
+
+    # checar si existe el id (CORREGIDO: usando ObjectId)
+    if not db.reviews.find_one({"_id": review_obj_id}):
         return jsonify({"error": "La reseña no existe"}), 400
 
-    # actualizar review
-    db.reviews.update_one({"_id": review_id}, {
+    # actualizar review (CORREGIDO: usando ObjectId)
+    db.reviews.update_one({"_id": review_obj_id}, {
                           "$set": {"rating": rating, "comment": comment}})
 
     return jsonify({"mensaje": "Reseña actualizada"}), 200
 
 # borrar review
-
-
 @reviews_bp.route('/<review_id>', methods=['DELETE'])
 def delete_review(review_id):
     # obtener base de datos
@@ -130,11 +162,16 @@ def delete_review(review_id):
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    # checar si existe el id
-    if not db.reviews.find_one({"_id": review_id}):
+    try:
+        review_obj_id = ObjectId(review_id)
+    except:
+        return jsonify({"error": "ID de reseña inválido"}), 400
+
+    # checar si existe el id (CORREGIDO: usando ObjectId)
+    if not db.reviews.find_one({"_id": review_obj_id}):
         return jsonify({"error": "La reseña no existe"}), 400
 
-    # borrar review
-    db.reviews.delete_one({"_id": review_id})
+    # borrar review (CORREGIDO: usando ObjectId)
+    db.reviews.delete_one({"_id": review_obj_id})
 
     return jsonify({"mensaje": "Reseña eliminada"}), 200

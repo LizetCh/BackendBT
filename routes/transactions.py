@@ -45,8 +45,8 @@ def create_transaction():
         return jsonify({"error": "ID o valor de horas inválido"}), 400
 
     service = db.services.find_one({"_id": service_id})
-    client = db.usuarios.find_one({"_id": client_id})
-    supplier = db.usuarios.find_one({"_id": supplier_id_obj})
+    client = db.users.find_one({"_id": client_id})
+    supplier = db.users.find_one({"_id": supplier_id_obj})
 
     if not service:
         return jsonify({"error": "Servicio no encontrado"}), 404
@@ -110,19 +110,19 @@ def update_transaction(transaction_id):
         if data['status_client'] not in ['accepted', 'rejected']:
             return jsonify({"error": "status_client inválido"}), 400
 
-        client = db.usuarios.find_one({"_id": ObjectId(transaction['client_id'])})
-        supplier = db.usuarios.find_one({"_id": ObjectId(transaction['supplier_id'])})
+        client = db.users.find_one({"_id": ObjectId(transaction['client_id'])})
+        supplier = db.users.find_one({"_id": ObjectId(transaction['supplier_id'])})
 
         if data['status_client'] == 'accepted':
             # Validar horas nuevamente
             if client['hours_balance'] < transaction['hours']:
                 return jsonify({"error": "Horas insuficientes para completar la transacción"}), 400
             # Transferir horas
-            db.usuarios.update_one(
+            db.users.update_one(
                 {"_id": client['_id']},
                 {"$inc": {"hours_balance": -transaction['hours']}}
             )
-            db.usuarios.update_one(
+            db.users.update_one(
                 {"_id": supplier['_id']},
                 {"$inc": {"hours_balance": transaction['hours']}}
             )
@@ -189,7 +189,7 @@ def get_all_transactions():
     except Exception:
         return jsonify({"error": "ID de usuario inválido"}), 400
 
-    user = db.usuarios.find_one({"_id": user_id})
+    user = db.users.find_one({"_id": user_id})
     if not user or user.get('role') != 'admin':
         return jsonify({"error": "No autorizado"}), 403
 
@@ -208,7 +208,7 @@ def delete_transaction(transaction_id):
     except Exception:
         return jsonify({"error": "ID inválido"}), 400
 
-    user = db.usuarios.find_one({"_id": user_id})
+    user = db.users.find_one({"_id": user_id})
     if not user or user.get('role') != 'admin':
         return jsonify({"error": "No autorizado"}), 403
 

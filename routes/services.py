@@ -49,7 +49,7 @@ def create_service():
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        # Validación de categoría (comentada, activar si decides usar tabla de categorías)
+        # Validación de categoría (activar si se necesita usar tabla de categorías)
         # if not db.categories.find_one({"name": data['category'].strip()}):
         #     return jsonify({"error": f"La categoría '{data['category']}' no existe"}), 400
 

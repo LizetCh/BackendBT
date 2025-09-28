@@ -34,7 +34,7 @@ def create_user():
         return jsonify({"error": "name, email y password son requeridos"}), 400
 
     try:
-        if db.usuarios.find_one({"email": email}):
+        if db.users.find_one({"email": email}):
             return jsonify({"error": "El email ya está registrado"}), 409
 
         user_doc = {
@@ -53,8 +53,8 @@ def create_user():
             "updated_at": datetime.utcnow()
         }
 
-        result = db.usuarios.insert_one(user_doc)
-        new_user = db.usuarios.find_one({"_id": result.inserted_id})
+        result = db.users.insert_one(user_doc)
+        new_user = db.users.find_one({"_id": result.inserted_id})
 
         access_token = create_access_token(
             identity=str(result.inserted_id),
@@ -85,7 +85,7 @@ def login():
         return jsonify({"error": "Email y password son requeridos"}), 400
 
     try:
-        user = db.usuarios.find_one({"email": email, "is_active": True})
+        user = db.users.find_one({"email": email, "is_active": True})
         
         if not user or not check_password_hash(user['password_hash'], password):
             return jsonify({"error": "Credenciales inválidas"}), 401
@@ -116,7 +116,7 @@ def get_profile():
     user_id = get_jwt_identity()
 
     try:
-        user = db.usuarios.find_one({"_id": ObjectId(user_id)})
+        user = db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
@@ -134,7 +134,7 @@ def update_profile():
         return jsonify({"error": "Base de datos no disponible"}), 500
 
     user_id = get_jwt_identity()
-    user = db.usuarios.find_one({"_id": ObjectId(user_id)})
+    user = db.users.find_one({"_id": ObjectId(user_id)})
 
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
@@ -155,7 +155,7 @@ def update_profile():
         if not email:
             return jsonify({"error": "El email no puede estar vacío"}), 400
         if email != user['email']:
-            existing_user = db.usuarios.find_one({
+            existing_user = db.users.find_one({
                 "email": email,
                 "_id": {"$ne": user['_id']}
             })
@@ -203,7 +203,7 @@ def update_profile():
 
     try:
         update_fields['updated_at'] = datetime.utcnow()
-        result = db.usuarios.update_one(
+        result = db.users.update_one(
             {"_id": user['_id']},
             {"$set": update_fields}
         )
@@ -211,7 +211,7 @@ def update_profile():
         if result.modified_count == 0:
             return jsonify({"error": "No se pudo actualizar el perfil"}), 500
 
-        updated_user = db.usuarios.find_one({"_id": user['_id']})
+        updated_user = db.users.find_one({"_id": user['_id']})
 
         return jsonify({
             "message": "Perfil actualizado exitosamente",
@@ -278,7 +278,7 @@ def recover_password():
             return jsonify({"error": "Token no válido"}), 401
         
         # Buscar usuario por email
-        user = db.usuarios.find_one({"email": email, "is_active": True})
+        user = db.users.find_one({"email": email, "is_active": True})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
         
@@ -287,7 +287,7 @@ def recover_password():
             return jsonify({"error": "Token no corresponde a este email"}), 401
         
         # Cambiar contraseña
-        result = db.usuarios.update_one(
+        result = db.users.update_one(
             {"_id": user['_id']},
             {
                 "$set": {
@@ -334,16 +334,16 @@ def add_hours():
     except ValueError:
         return jsonify({"error": "El valor de horas debe ser numérico"}), 400
 
-    user = db.usuarios.find_one({"_id": user_obj_id})
+    user = db.users.find_one({"_id": user_obj_id})
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    db.usuarios.update_one(
+    db.users.update_one(
         {"_id": user_obj_id},
         {"$inc": {"hours_balance": hours_float}}
     )
 
-    updated_user = db.usuarios.find_one({"_id": user_obj_id})
+    updated_user = db.users.find_one({"_id": user_obj_id})
 
     return jsonify({
         "message": f"Se agregaron {hours_float} horas a {updated_user['name']}",

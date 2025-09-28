@@ -45,7 +45,7 @@ def create_service():
 
     try:
         # Verificar que el usuario existe
-        user = db.usuarios.find_one({"_id": ObjectId(current_user)})
+        user = db.users.find_one({"_id": ObjectId(current_user)})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 

@@ -80,7 +80,6 @@ def create_transaction():
 
 
 # Actualizar transacción
-# Actualizar transacción
 @transactions_bp.route('/<transaction_id>', methods=['PUT'])
 @jwt_required()
 def update_transaction(transaction_id):

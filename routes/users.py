@@ -46,7 +46,7 @@ def create_user():
             "skills": data.get("skills", []),
             "rating_avg": 0.0,
             "rating_count": 0,
-            "hours_balance": 0.0,
+            "hours_balance": 1.0,
             "role": role,
             "is_active": True,
             "created_at": datetime.utcnow(),

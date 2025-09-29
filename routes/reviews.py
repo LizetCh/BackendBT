@@ -1,16 +1,41 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from config.db import get_db
-from bson import ObjectId 
+from bson import ObjectId
 
 # Crear blueprint
 reviews_bp = Blueprint('reviews', __name__)
 
+# función para convertir objectId a string
+
+
+def serialize_doc(doc):
+    if not doc:
+        return None
+
+    serialized = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            serialized[key] = str(value)
+        else:
+            serialized[key] = value
+    return serialized
 
 # crear review
+
+
 @reviews_bp.route('/new', methods=['POST'])
+@jwt_required()
 def new_review():
     # obtener datos
     data = request.get_json()
+
+    # obtener token
+    current_user = get_jwt_identity()
+    print("Usuario actual desde token:", current_user)
+
+    if not current_user:
+        return jsonify({"error": "Usuario no autenticado"}), 401
 
     # obtener base de datos
     db = get_db()
@@ -19,9 +44,16 @@ def new_review():
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
     service_id = data.get('service_id')
-    user_id = data.get('user_id')
+    user_id = current_user
     rating = data.get('rating')
     comment = data.get('comment')
+
+    if isinstance(rating, int):
+        pass
+    elif isinstance(rating, str) and rating.isdigit():
+        rating = int(rating)
+    else:
+        return jsonify({"error": "El rating debe ser un número entero"}), 400
 
     # validación
     if not service_id or not user_id or not rating or not comment:
@@ -58,7 +90,11 @@ def new_review():
 
     return jsonify({
         "mensaje": "Reseña creada",
-        "review_id": str(result.inserted_id)
+        "review_id": str(result.inserted_id),
+        "service_id": service_id,
+        "user_id": user_id,
+        "rating": rating,
+        "comment": comment
     }), 201
 
 
@@ -120,7 +156,10 @@ def get_reviews_by_user(user_id):
     return jsonify(reviews), 200
 
 # update review
+
+
 @reviews_bp.route('/<review_id>', methods=['PUT'])
+@jwt_required()
 def update_review(review_id):
     # obtener datos
     data = request.get_json()
@@ -135,8 +174,17 @@ def update_review(review_id):
     comment = data.get('comment')
 
     # validación de datos necesarios
-    if not rating or not comment:
+    if not (rating or comment):
         return jsonify({"error": "Faltan datos para actualizar la reseña"}), 400
+
+    # validar rating
+    if rating:
+        if isinstance(rating, int):
+            pass
+        elif isinstance(rating, str) and rating.isdigit():
+            rating = int(rating)
+        else:
+            return jsonify({"error": "El rating debe ser un número entero"}), 400
 
     try:
         review_obj_id = ObjectId(review_id)
@@ -147,13 +195,29 @@ def update_review(review_id):
     if not db.reviews.find_one({"_id": review_obj_id}):
         return jsonify({"error": "La reseña no existe"}), 400
 
+    # checar que haya iniciado sesión
+    # obtener token
+    current_user = get_jwt_identity()
+    if not current_user:
+        return jsonify({"error": "Usuario no autenticado"}), 401
+
+    # checar que el review pertenezca al usuario
+    review = db.reviews.find_one({"_id": review_obj_id})
+    if str(review['user_id']) != current_user:
+        return jsonify({"error": "No tienes permiso para actualizar esta reseña"}), 403
+
     # actualizar review (CORREGIDO: usando ObjectId)
     db.reviews.update_one({"_id": review_obj_id}, {
                           "$set": {"rating": rating, "comment": comment}})
 
-    return jsonify({"mensaje": "Reseña actualizada"}), 200
+    # obtener la reseña actualizada
+    updated_review = db.reviews.find_one({"_id": review_obj_id})
+
+    return jsonify({"mensaje": "Reseña actualizada", "reseña": serialize_doc(updated_review)}), 200
 
 # borrar review
+
+
 @reviews_bp.route('/<review_id>', methods=['DELETE'])
 def delete_review(review_id):
     # obtener base de datos
@@ -170,6 +234,16 @@ def delete_review(review_id):
     # checar si existe el id (CORREGIDO: usando ObjectId)
     if not db.reviews.find_one({"_id": review_obj_id}):
         return jsonify({"error": "La reseña no existe"}), 400
+
+    # checar que haya iniciado sesión
+    current_user = get_jwt_identity()
+    if not current_user:
+        return jsonify({"error": "Usuario no autenticado"}), 401
+
+    # checar que el review pertenezca al usuario
+    review = db.reviews.find_one({"_id": review_obj_id})
+    if str(review['user_id']) != current_user:
+        return jsonify({"error": "No tienes permiso para eliminar esta reseña"}), 403
 
     # borrar review (CORREGIDO: usando ObjectId)
     db.reviews.delete_one({"_id": review_obj_id})

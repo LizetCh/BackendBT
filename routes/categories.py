@@ -2,6 +2,23 @@ from bson import ObjectId
 from flask import Blueprint, jsonify, request
 from config.db import get_db
 
+
+# función para convertir objectId a string
+
+
+def serialize_doc(doc):
+    if not doc:
+        return None
+
+    serialized = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            serialized[key] = str(value)
+        else:
+            serialized[key] = value
+    return serialized
+
+
 # Crear blueprint
 categories_bp = Blueprint('categories', __name__)
 
@@ -36,9 +53,11 @@ def new_category():
         "name": name
     }
 
-    db.categories.insert_one(category)
+    inserted_category = db.categories.insert_one(category)
+    inserted_category = db.categories.find_one(
+        {"_id": inserted_category.inserted_id})
 
-    return jsonify({"mensaje": "Categoría creada"}), 201
+    return jsonify({"mensaje": "Categoría creada", "category": serialize_doc(inserted_category)}), 201
 
 
 # obtener todas las categorías
@@ -51,7 +70,7 @@ def get_categories():
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
     categories = list(db.categories.find({}))
-    
+
     # Convertir ObjectId a string para JSON
     for category in categories:
         category['_id'] = str(category['_id'])
@@ -89,11 +108,13 @@ def update_category(category_id):
 
     # actualizar categoría
     db.categories.update_one(
-        {"_id": category_id},  # filter
+        {"_id": ObjectId(category_id)},  # filter
         {"$set": {"name": name}}
     )
 
-    return jsonify({"mensaje": "Categoría actualizada"}), 200
+    updated_category = db.categories.find_one({"_id": ObjectId(category_id)})
+
+    return jsonify({"mensaje": "Categoría actualizada", "category": serialize_doc(updated_category)}), 200
 
 
 # eliminar categoría

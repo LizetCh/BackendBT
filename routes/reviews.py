@@ -117,15 +117,12 @@ def get_reviews_by_service(service_id):
         return jsonify({"error": "El servicio no existe"}), 400
 
     # obtener reviews (USANDO ObjectId)
-    reviews = list(db.reviews.find({"service_id": service_obj_id}, {'_id': 0}))
+    reviews = list(db.reviews.find({"service_id": service_obj_id}))
 
     # Convertir ObjectIds a strings para JSON
-    for review in reviews:
-        review['_id'] = str(review['_id'])   
-        review['service_id'] = str(review['service_id'])
-        review['user_id'] = str(review['user_id'])
+    reviews = [serialize_doc(r) for r in reviews]
 
-    return jsonify(reviews), 200
+    return jsonify({"reviews": reviews}), 200
 
 
 # obtener reviews de un usuario

@@ -121,6 +121,7 @@ def get_reviews_by_service(service_id):
 
     # Convertir ObjectIds a strings para JSON
     for review in reviews:
+        review['_id'] = str(review['_id'])   
         review['service_id'] = str(review['service_id'])
         review['user_id'] = str(review['user_id'])
 
@@ -219,6 +220,7 @@ def update_review(review_id):
 
 
 @reviews_bp.route('/<review_id>', methods=['DELETE'])
+@jwt_required()
 def delete_review(review_id):
     # obtener base de datos
     db = get_db()

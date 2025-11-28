@@ -288,67 +288,58 @@ def forgot_password():
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
 
-@users_bp.route('/reset-password', methods=['POST'])
-def reset_password():
-
+@users_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Paso 1: el usuario manda su email.
+    Generamos un reset_token y una expiración de 1 hora.
+    En producción se enviaría por correo; aquí lo regresamos en el JSON para pruebas.
+    """
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
 
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
-    reset_token = (data.get("token") or "").strip()
-    new_password = data.get("new_password")
 
-    if not all([email, reset_token, new_password]):
-        return jsonify({"error": "Email, token y nueva contraseña son requeridos"}), 400
-
-    password_error = validate_password(new_password)
-    if password_error:
-        return jsonify({"error": password_error}), 400
+    if not email:
+        return jsonify({"error": "Email es requerido"}), 400
 
     try:
         user = db.users.find_one({"email": email, "is_active": True})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        stored_token = user.get("reset_token")
-        expires_at = user.get("reset_token_expires_at")
+        # Generar token/código de recuperación
+        reset_token = secrets.token_urlsafe(16)
 
-        if not stored_token or stored_token != reset_token:
-            return jsonify({"error": "Token inválido"}), 401
-
-        if not expires_at or expires_at < datetime.utcnow():
-            return jsonify({"error": "Token expirado"}), 401
-
-        result = db.users.update_one(
+        db.users.update_one(
             {"_id": user["_id"]},
             {
                 "$set": {
-                    "password_hash": generate_password_hash(new_password),
-                    "updated_at": datetime.utcnow()
-                },
-                "$unset": {
-                    "reset_token": "",
-                    "reset_token_expires_at": ""
+                    "reset_token": reset_token,
+                    "reset_token_expires_at": datetime.utcnow() + timedelta(hours=1)
                 }
             }
         )
 
-        if result.modified_count == 0:
-            return jsonify({"error": "No se pudo actualizar la contraseña"}), 500
-
+        # En un sistema real se mandaría por correo.
+        # Para la tarea lo devolvemos para que puedas probarlo:
         return jsonify({
-            "message": "Contraseña actualizada exitosamente",
-            "email": email
+            "message": "Token de recuperación generado. En un sistema real se enviaría por correo.",
+            "email": email,
+            "reset_token": reset_token  # ⚠️ SOLO PARA PRUEBAS
         }), 200
 
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
-
 @users_bp.route('/recover-password', methods=['POST'])
 def recover_password():
+    """
+    Paso 2: el usuario manda email + token + new_password.
+    Validamos el token guardado y, si es válido, actualizamos la contraseña.
+    """
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
@@ -362,7 +353,7 @@ def recover_password():
     if not all([email, token, new_password]):
         return jsonify({"error": "Email, token y nueva contraseña son requeridos"}), 400
 
-    # Validar contraseña
+    # Validar contraseña con tu helper
     password_error = validate_password(new_password)
     if password_error:
         return jsonify({"error": password_error}), 400

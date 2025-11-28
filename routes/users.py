@@ -247,17 +247,10 @@ def validate_password(password):
     return None
 
 
-# ================================
-#   FLUJO OLVIDÉ MI CONTRASEÑA
-# ================================
 
 @users_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
-    """
-    Paso 1: el usuario manda su email.
-    Generamos un reset_token y fecha de expiración (1 hora).
-    En producción se enviaría por correo; aquí lo regresamos en el JSON para pruebas.
-    """
+
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
@@ -297,10 +290,7 @@ def forgot_password():
 
 @users_bp.route('/reset-password', methods=['POST'])
 def reset_password():
-    """
-    Paso 2: el usuario manda email + token + new_password.
-    Validamos token, expiración y actualizamos password_hash.
-    """
+
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
@@ -357,56 +347,53 @@ def reset_password():
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
 
-# Ruta original recover-password (ya NO necesaria con el nuevo flujo,
-# pero la dejo por si tu profe la revisa)
 @users_bp.route('/recover-password', methods=['POST'])
 def recover_password():
-
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
 
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
-    jwt_token = (data.get("token") or "").strip()
+    token = (data.get("token") or "").strip()
     new_password = data.get("new_password")
 
-    if not all([email, jwt_token, new_password]):
+    # Validar que todos los campos estén presentes
+    if not all([email, token, new_password]):
         return jsonify({"error": "Email, token y nueva contraseña son requeridos"}), 400
 
+    # Validar contraseña
     password_error = validate_password(new_password)
     if password_error:
         return jsonify({"error": password_error}), 400
 
     try:
-        try:
-            decoded_token = jwt.decode(
-                jwt_token,
-                os.getenv('JWT_SECRET', 'lunas'),
-                algorithms=['HS256']
-            )
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token expirado"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Token inválido"}), 401
-
-        token_user_id = decoded_token.get('user_id')
-        if not token_user_id:
-            return jsonify({"error": "Token no válido"}), 401
-
+        # Buscar usuario por email
         user = db.users.find_one({"email": email, "is_active": True})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        if str(user['_id']) != token_user_id:
-            return jsonify({"error": "Token no corresponde a este email"}), 401
+        # Obtener token guardado y fecha de expiración
+        stored_token = user.get("reset_token")
+        expires_at = user.get("reset_token_expires_at")
 
+        if not stored_token or stored_token != token:
+            return jsonify({"error": "Token inválido"}), 401
+
+        if not expires_at or expires_at < datetime.utcnow():
+            return jsonify({"error": "Token expirado"}), 401
+
+        # Cambiar contraseña y borrar el token de recuperación
         result = db.users.update_one(
             {"_id": user['_id']},
             {
                 "$set": {
                     "password_hash": generate_password_hash(new_password),
                     "updated_at": datetime.utcnow()
+                },
+                "$unset": {
+                    "reset_token": "",
+                    "reset_token_expires_at": ""
                 }
             }
         )

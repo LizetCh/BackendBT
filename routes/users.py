@@ -1,7 +1,7 @@
-from flask import Blueprint, jsonify, request 
+from flask import Blueprint, jsonify, request
 from config.db import get_db
 from datetime import datetime, timedelta
-from bson import ObjectId 
+from bson import ObjectId
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -9,12 +9,20 @@ import os
 
 users_bp = Blueprint('users', __name__)
 
+# FORMATO
+# name
+# email
+# password
+
+
 def serialize_doc(doc):
     if doc and '_id' in doc:
         doc['_id'] = str(doc['_id'])
     return doc
 
 # crear usuario
+
+
 @users_bp.route('/create', methods=['POST'])
 def create_user():
     data = request.get_json() or {}
@@ -71,6 +79,8 @@ def create_user():
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
 # login
+
+
 @users_bp.route('/login', methods=['POST'])
 def login():
     db = get_db()
@@ -86,7 +96,7 @@ def login():
 
     try:
         user = db.users.find_one({"email": email, "is_active": True})
-        
+
         if not user or not check_password_hash(user['password_hash'], password):
             return jsonify({"error": "Credenciales inválidas"}), 401
 
@@ -103,7 +113,6 @@ def login():
 
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
-
 
 
 @users_bp.route('/profile', methods=['GET'])
@@ -125,7 +134,9 @@ def get_profile():
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
-#update de perfil
+# update de perfil
+
+
 @users_bp.route('/update', methods=['PUT'])
 @jwt_required()
 def update_profile():
@@ -229,18 +240,17 @@ def serialize_user_safe(doc):
         doc.pop('password_hash', None)
     return doc
 
+
 def validate_password(password):
     if len(password) < 8:
         return "La contraseña debe tener al menos 8 caracteres"
     return None
 
 
-
-
-#recuperar contraseña
+# recuperar contraseña
 @users_bp.route('/recover-password', methods=['POST'])
 def recover_password():
-    
+
     db = get_db()
     if db is None:
         return jsonify({"error": "Base de datos no disponible"}), 500
@@ -249,43 +259,43 @@ def recover_password():
     email = (data.get("email") or "").strip().lower()
     jwt_token = (data.get("token") or "").strip()
     new_password = data.get("new_password")
-    
+
     # Validar que todos los campos estén presentes
     if not all([email, jwt_token, new_password]):
         return jsonify({"error": "Email, token y nueva contraseña son requeridos"}), 400
-    
+
     # Validar contraseña
     password_error = validate_password(new_password)
     if password_error:
         return jsonify({"error": password_error}), 400
-    
+
     try:
         # Decodificar JWT token (el token normal de login)
         try:
             decoded_token = jwt.decode(
-                jwt_token, 
-                os.getenv('JWT_SECRET', 'lunas'), 
+                jwt_token,
+                os.getenv('JWT_SECRET', 'lunas'),
                 algorithms=['HS256']
             )
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expirado"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Token inválido"}), 401
-        
+
         # Obtener user_id del token
         token_user_id = decoded_token.get('user_id')
         if not token_user_id:
             return jsonify({"error": "Token no válido"}), 401
-        
+
         # Buscar usuario por email
         user = db.users.find_one({"email": email, "is_active": True})
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
-        
+
         # Verificar que el user_id del token coincida con el usuario del email
         if str(user['_id']) != token_user_id:
             return jsonify({"error": "Token no corresponde a este email"}), 401
-        
+
         # Cambiar contraseña
         result = db.users.update_one(
             {"_id": user['_id']},
@@ -296,19 +306,21 @@ def recover_password():
                 }
             }
         )
-        
+
         if result.modified_count == 0:
             return jsonify({"error": "No se pudo actualizar la contraseña"}), 500
-        
+
         return jsonify({
             "message": "Contraseña actualizada exitosamente",
             "email": email
         }), 200
-        
+
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
-#_____________Agregar horas al usuario, solo para pruebas :)______
+# _____________Agregar horas al usuario, solo para pruebas :)______
+
+
 @users_bp.route('/add-hours', methods=['POST'])
 def add_hours():
     db = get_db()

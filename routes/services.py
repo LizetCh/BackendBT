@@ -90,8 +90,44 @@ def get_all_services():
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    services = list(db.services.find())
-    return jsonify([serialize_service(s) for s in services]), 200
+    try:
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "owner_id",
+                    "foreignField": "_id",
+                    "as": "owner"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$owner",
+                    "preserveNullAndEmptyArrays": True
+                }
+            },
+            # usar project para pasar solo ciertos campos (no contraseñas, email, etc)
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "title": 1,
+                    "description": 1,
+                    "categories": 1,
+                    "hours": 1,
+                    "contact": 1,
+                    "date_created": 1,
+                    "location": 1,
+                    "owner_id": {"$toString": "$owner_id"},
+                    "owner_name": "$owner.name"
+                }
+            }
+        ]
+        services = list(db.services.aggregate(pipeline))
+
+        return jsonify(services), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Error al obtener servicios: {str(e)}"}), 500
 
 # Obtener servicios de un usuario
 
@@ -102,8 +138,47 @@ def get_services_by_user(user_id):
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
-    services = list(db.services.find({"owner_id": ObjectId(user_id)}))
-    return jsonify([serialize_service(s) for s in services]), 200
+    try:
+        {
+            "$match": {"owner_id": ObjectId(user_id)}
+        }
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "owner_id",
+                    "foreignField": "_id",
+                    "as": "owner"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$owner",
+                    "preserveNullAndEmptyArrays": True
+                }
+            },
+            # usar project para pasar solo ciertos campos (no contraseñas, email, etc)
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "title": 1,
+                    "description": 1,
+                    "categories": 1,
+                    "hours": 1,
+                    "contact": 1,
+                    "date_created": 1,
+                    "location": 1,
+                    "owner_id": {"$toString": "$owner_id"},
+                    "owner_name": "$owner.name"
+                }
+            }
+        ]
+        services = list(db.services.aggregate(pipeline))
+
+        return jsonify(services), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Error al obtener servicios: {str(e)}"}), 500
 
 # Actualizar servicio
 

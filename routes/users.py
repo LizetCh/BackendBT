@@ -247,53 +247,10 @@ def validate_password(password):
     return None
 
 
-
-@users_bp.route('/forgot-password', methods=['POST'])
-def forgot_password():
-
-    db = get_db()
-    if db is None:
-        return jsonify({"error": "Base de datos no disponible"}), 500
-
-    data = request.get_json() or {}
-    email = (data.get("email") or "").strip().lower()
-
-    if not email:
-        return jsonify({"error": "Email es requerido"}), 400
-
-    try:
-        user = db.users.find_one({"email": email, "is_active": True})
-        if not user:
-            return jsonify({"error": "Usuario no encontrado"}), 404
-
-        reset_token = secrets.token_urlsafe(32)
-
-        db.users.update_one(
-            {"_id": user["_id"]},
-            {
-                "$set": {
-                    "reset_token": reset_token,
-                    "reset_token_expires_at": datetime.utcnow() + timedelta(hours=1)
-                }
-            }
-        )
-
-        return jsonify({
-            "message": "Se ha generado un token de recuperación. En un sistema real se enviaría por email.",
-            "email": email,
-            "reset_token": reset_token  # SOLO para pruebas
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": f"Error: {str(e)}"}), 500
-
-
 @users_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
     """
-    Paso 1: el usuario manda su email.
     Generamos un reset_token y una expiración de 1 hora.
-    En producción se enviaría por correo; aquí lo regresamos en el JSON para pruebas.
     """
     db = get_db()
     if db is None:
@@ -322,13 +279,11 @@ def forgot_password():
                 }
             }
         )
-
-        # En un sistema real se mandaría por correo.
-        # Para la tarea lo devolvemos para que puedas probarlo:
+        #  lo devolvemos para que puedas probarlo:
         return jsonify({
             "message": "Token de recuperación generado. En un sistema real se enviaría por correo.",
             "email": email,
-            "reset_token": reset_token  # ⚠️ SOLO PARA PRUEBAS
+            "reset_token": reset_token  
         }), 200
 
     except Exception as e:

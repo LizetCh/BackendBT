@@ -1,3 +1,7 @@
+
+# DEPRECATED: categories are now managed in services.py
+
+
 from bson import ObjectId
 from flask import Blueprint, jsonify, request
 from config.db import get_db

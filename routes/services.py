@@ -8,6 +8,8 @@ from datetime import datetime
 services_bp = Blueprint('services', __name__)
 
 # Serialización de servicios
+
+
 def serialize_service(service):
     if service and '_id' in service:
         service = service.copy()
@@ -19,6 +21,8 @@ def serialize_service(service):
     return service
 
 # Crear servicio
+
+
 @services_bp.route('/crear', methods=['POST'])
 @jwt_required()
 def create_service():
@@ -26,7 +30,8 @@ def create_service():
     data = request.get_json() or {}
 
     # Validación de campos requeridos
-    required_fields = ['title', 'description', 'category', 'hours', 'contact', 'location']
+    required_fields = ['title', 'description',
+                       'categories', 'hours', 'contact', 'location']
     missing = [field for field in required_fields if not data.get(field)]
     if missing:
         return jsonify({"error": f"Faltan campos: {', '.join(missing)}"}), 400
@@ -58,7 +63,7 @@ def create_service():
             "owner_id": ObjectId(current_user),
             "title": data['title'].strip(),
             "description": data['description'].strip(),
-            "category": data['category'].strip(),
+            "categories": [c.strip() for c in data['categories'].split(",") if c.strip()],
             "hours": hours,
             "contact": data['contact'].strip(),
             "date_created": datetime.utcnow(),
@@ -77,6 +82,8 @@ def create_service():
         return jsonify({"error": f"Error al crear servicio: {str(e)}"}), 500
 
 # Obtener todos los servicios
+
+
 @services_bp.route('/', methods=['GET'])
 def get_all_services():
     db = get_db()
@@ -87,6 +94,8 @@ def get_all_services():
     return jsonify([serialize_service(s) for s in services]), 200
 
 # Obtener servicios de un usuario
+
+
 @services_bp.route('/user/<user_id>', methods=['GET'])
 def get_services_by_user(user_id):
     db = get_db()
@@ -97,6 +106,8 @@ def get_services_by_user(user_id):
     return jsonify([serialize_service(s) for s in services]), 200
 
 # Actualizar servicio
+
+
 @services_bp.route('/<service_id>', methods=['PUT'])
 @jwt_required()
 def update_service(service_id):
@@ -141,13 +152,16 @@ def update_service(service_id):
         return jsonify({"error": "No hay campos para actualizar"}), 400
 
     try:
-        db.services.update_one({"_id": ObjectId(service_id)}, {"$set": update_fields})
+        db.services.update_one({"_id": ObjectId(service_id)}, {
+                               "$set": update_fields})
         updated_service = db.services.find_one({"_id": ObjectId(service_id)})
         return jsonify({"message": "Servicio actualizado", "service": serialize_service(updated_service)}), 200
     except Exception as e:
         return jsonify({"error": f"Error al actualizar servicio: {str(e)}"}), 500
 
 # Eliminar servicio
+
+
 @services_bp.route('/<service_id>', methods=['DELETE'])
 @jwt_required()
 def delete_service(service_id):

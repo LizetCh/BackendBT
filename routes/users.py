@@ -38,20 +38,21 @@ def create_user():
             return jsonify({"error": "El email ya está registrado"}), 409
 
         user_doc = {
-            "name": name,
-            "email": email,
-            "phone": (data.get("phone") or "").strip() or None,
-            "password_hash": generate_password_hash(password),
-            "bio": data.get("bio", ""),
-            "skills": data.get("skills", []),
-            "rating_avg": 0.0,
-            "rating_count": 0,
-            "hours_balance": 1.0,
-            "role": role,
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
+                "name": name,
+                "email": email,
+                "phone": (data.get("phone") or "1111111").strip(),
+                "password_hash": generate_password_hash(password),
+                "bio": (data.get("bio") or "Por definir aún"),
+                "skills": data.get("skills") or ["Por definir aún"],
+                "rating_avg": 0.0,
+                "rating_count": 0,
+                "hours_balance": 1.0,
+                "role": role,
+                "is_active": True,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+
 
         result = db.users.insert_one(user_doc)
         new_user = db.users.find_one({"_id": result.inserted_id})
@@ -166,19 +167,28 @@ def update_profile():
     # 3. TELÉFONO
     if 'phone' in data:
         phone = (data.get('phone') or '').strip()
-        update_fields['phone'] = phone if phone else None
+        if not phone:
+            phone = "1111111" 
+        update_fields['phone'] = phone
+
 
     # 4. BIO
     if 'bio' in data:
-        update_fields['bio'] = data.get('bio', '')
+        bio = (data.get('bio') or '').strip()
+        if not bio:
+            bio = "Por definir aún"
+        update_fields['bio'] = bio
+
 
     # 5. SKILLS
     if 'skills' in data:
-        skills = data.get('skills', [])
-        if isinstance(skills, list):
+        skills = data.get('skills')
+        if isinstance(skills, list) and skills:
             update_fields['skills'] = skills
         else:
-            return jsonify({"error": "Skills debe ser una lista"}), 400
+            # si viene vacío o no es lista, dejamos el default
+            update_fields['skills'] = ["Por definir aún"]
+
 
     # 6. CONTRASEÑA
     if 'password' in data:

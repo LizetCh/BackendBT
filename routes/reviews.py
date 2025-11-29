@@ -239,9 +239,9 @@ def delete_review(review_id):
     if not current_user:
         return jsonify({"error": "Usuario no autenticado"}), 401
 
-    # checar que el review pertenezca al usuario
+    # checar que el review pertenezca al usuario o sea admin
     review = db.reviews.find_one({"_id": review_obj_id})
-    if str(review['user_id']) != current_user:
+    if str(review['user_id']) != current_user or current_user.role != 'admin':
         return jsonify({"error": "No tienes permiso para eliminar esta reseña"}), 403
 
     # borrar review (CORREGIDO: usando ObjectId)

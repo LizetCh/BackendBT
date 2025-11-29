@@ -249,7 +249,7 @@ def delete_service(service_id):
     if not service:
         return jsonify({"error": "Servicio no encontrado"}), 404
 
-    if str(service['owner_id']) != current_user:
+    if (str(service['owner_id']) != current_user or current_user.role != 'admin'):
         return jsonify({"error": "No tienes permisos para eliminar este servicio"}), 403
 
     try:

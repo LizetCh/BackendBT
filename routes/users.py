@@ -6,7 +6,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import os
-import secrets  
+import secrets
 
 users_bp = Blueprint('users', __name__)
 
@@ -72,7 +72,8 @@ def create_user():
         return jsonify({
             "message": "Usuario creado exitosamente",
             "user": serialize_doc(new_user),
-            "token": access_token
+            "token": access_token,
+            "role": role
         }), 201
 
     except Exception as e:
@@ -106,7 +107,8 @@ def login():
         return jsonify({
             "message": "Login exitoso",
             "user": serialize_doc(user),
-            "token": access_token
+            "token": access_token,
+            "role": user.get("role", "user")
         })
 
     except Exception as e:
@@ -197,7 +199,6 @@ def update_profile():
         profile_image_url = data.get('profile_image_url')
         if profile_image_url:
             update_fields['profile_image_url'] = profile_image_url
-
 
     # 7. CONTRASEÑA NUEVA (cambio desde perfil)
     if 'password' in data:
@@ -291,11 +292,12 @@ def forgot_password():
         return jsonify({
             "message": "Token de recuperación generado. En un sistema real se enviaría por correo.",
             "email": email,
-            "reset_token": reset_token  
+            "reset_token": reset_token
         }), 200
 
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
+
 
 @users_bp.route('/recover-password', methods=['POST'])
 def recover_password():
@@ -406,6 +408,8 @@ def add_hours():
     }), 200
 
 # Obtener usuario por ID
+
+
 @users_bp.route('/<user_id>', methods=['GET'])
 def get_user_by_id(user_id):
     db = get_db()
@@ -428,6 +432,6 @@ def get_user_by_id(user_id):
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    user['_id'] = str(user['_id']) 
+    user['_id'] = str(user['_id'])
 
     return jsonify({"user": user}), 200

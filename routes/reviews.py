@@ -116,11 +116,32 @@ def get_reviews_by_service(service_id):
     if not db.services.find_one({"_id": service_obj_id}):
         return jsonify({"error": "El servicio no existe"}), 400
 
-    # obtener reviews (USANDO ObjectId)
-    reviews = list(db.reviews.find({"service_id": service_obj_id}))
-
-    # Convertir ObjectIds a strings para JSON
-    reviews = [serialize_doc(r) for r in reviews]
+    # obtener reviews usando aggregate
+    try:
+        pipeline = [
+            {"$match": {"service_id": service_obj_id}},
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "user_id",
+                    "foreignField": "_id",
+                    "as": "user_info"
+                }
+            },
+            {"$unwind": "$user_info"},
+            {"$project": {
+                "_id": 0,
+                "service_id": {"$toString": "$service_id"},
+                "user_id": {"$toString": "$user_id"},
+                "rating": 1,
+                "comment": 1,
+                "user_email": "$user_info.email"
+            }
+            }
+        ]
+        reviews = list(db.reviews.aggregate(pipeline))
+    except Exception as e:
+        return jsonify({"error": f"Error al obtener reseñas: {str(e)}"}), 500
 
     return jsonify({"reviews": reviews}), 200
 
@@ -143,15 +164,34 @@ def get_reviews_by_user(user_id):
     if not db.users.find_one({"_id": user_obj_id}):
         return jsonify({"error": "El usuario no existe"}), 400
 
-    # obtener reviews (USANDO ObjectId)
-    reviews = list(db.reviews.find({"user_id": user_obj_id}, {'_id': 0}))
+    # obtener reviews usando aggregate
+    try:
+        pipeline = [
+            {"$match": {"user_id": user_obj_id}},
+            {
+                "$lookup": {
+                    "from": "services",
+                    "localField": "service_id",
+                    "foreignField": "_id",
+                    "as": "service_info"
+                }
+            },
+            {"$unwind": "$service_info"},
+            {"$project": {
+                "_id": 0,
+                "service_id": {"$toString": "$service_id"},
+                "user_id": {"$toString": "$user_id"},
+                "rating": 1,
+                "comment": 1,
+                "service_title": "$service_info.title"
+            }
+            }
+        ]
+        reviews = list(db.reviews.aggregate(pipeline))
+    except Exception as e:
+        return jsonify({"error": f"Error al obtener reseñas: {str(e)}"}), 500
 
-    # Convertir ObjectIds a strings para JSON
-    for review in reviews:
-        review['service_id'] = str(review['service_id'])
-        review['user_id'] = str(review['user_id'])
-
-    return jsonify(reviews), 200
+    return jsonify({"reviews": reviews}), 200
 
 # update review
 

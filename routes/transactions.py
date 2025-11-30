@@ -218,3 +218,48 @@ def delete_transaction(transaction_id):
 
     db.transactions.delete_one({"_id": trans_id})
     return jsonify({"message": "Transacción eliminada"}), 200
+
+#Endpoints para la sección de Mis transacciones
+
+# Obtener transacciones pendientes del usuario (como cliente)
+@transactions_bp.route('/user/pending', methods=['GET'])
+@jwt_required()
+def get_user_pending_transactions():
+    current_user = get_jwt_identity()
+    db = get_db()
+
+    try:
+        user_id = ObjectId(current_user)
+    except Exception:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+    # Pendientes donde el usuario es el cliente
+    transactions = list(db.transactions.find({
+        "client_id": user_id,
+        "status_client": "pending",
+        "status_transaction": "pending"
+    }))
+
+    return jsonify([serialize_transaction(t) for t in transactions]), 200
+
+# Obtener historial de transacciones del usuario (completadas o canceladas)
+@transactions_bp.route('/user/history', methods=['GET'])
+@jwt_required()
+def get_user_transaction_history():
+    current_user = get_jwt_identity()
+    db = get_db()
+
+    try:
+        user_id = ObjectId(current_user)
+    except Exception:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+    transactions = list(db.transactions.find({
+        "$or": [
+            {"client_id": user_id},
+            {"supplier_id": user_id}
+        ],
+        "status_transaction": {"$in": ["completed", "cancelled"]}
+    }))
+
+    return jsonify([serialize_transaction(t) for t in transactions]), 200

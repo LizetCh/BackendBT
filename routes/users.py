@@ -56,6 +56,7 @@ def create_user():
             "hours_balance": 1.0,
             "role": role,
             "is_active": True,
+            "profile_image_url": data.get("profile_image_url") or "https://res.cloudinary.com/diftcqmcr/image/upload/v1764469276/DefaultAvatar_r0blxh.png",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -191,7 +192,14 @@ def update_profile():
         else:
             update_fields['skills'] = ["Por definir aún"]
 
-    # 6. CONTRASEÑA NUEVA (cambio desde perfil)
+    # 6. FOTO DE PERFIL (URL) Evita que la foto se pueda borrar por accidente al mandar "" en el body
+    if 'profile_image_url' in data:
+        profile_image_url = data.get('profile_image_url')
+        if profile_image_url:
+            update_fields['profile_image_url'] = profile_image_url
+
+
+    # 7. CONTRASEÑA NUEVA (cambio desde perfil)
     if 'password' in data:
         password = data.get('password')
         if not password:
@@ -203,7 +211,7 @@ def update_profile():
 
         update_fields['password_hash'] = generate_password_hash(password)
 
-    # 7. CONTRASEÑA ACTUAL (para validar el cambio)
+    # 8. CONTRASEÑA ACTUAL (para validar el cambio)
     if 'current_password' in data and 'password' in data:
         current_password = data.get('current_password')
         if not check_password_hash(user['password_hash'], current_password):

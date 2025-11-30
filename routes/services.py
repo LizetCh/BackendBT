@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from config.db import get_db
 from bson import ObjectId
 from datetime import datetime
@@ -245,6 +245,7 @@ def update_service(service_id):
 @jwt_required()
 def delete_service(service_id):
     current_user = get_jwt_identity()
+    current_user_role = get_jwt()["role"]
     db = get_db()
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
@@ -253,7 +254,7 @@ def delete_service(service_id):
     if not service:
         return jsonify({"error": "Servicio no encontrado"}), 404
 
-    if (str(service['owner_id']) != current_user or current_user.role != 'admin'):
+    if not ((str(service['owner_id']) == current_user) or (current_user_role == 'admin')):
         return jsonify({"error": "No tienes permisos para eliminar este servicio"}), 403
 
     try:

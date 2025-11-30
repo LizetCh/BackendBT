@@ -66,7 +66,8 @@ def create_user():
 
         access_token = create_access_token(
             identity=str(result.inserted_id),
-            expires_delta=timedelta(days=30)
+            expires_delta=timedelta(days=30),
+            additional_claims={"role": role}
         )
 
         return jsonify({
@@ -101,7 +102,8 @@ def login():
 
         access_token = create_access_token(
             identity=str(user['_id']),
-            expires_delta=timedelta(days=30)
+            expires_delta=timedelta(days=30),
+            additional_claims={"role": user.get("role", "user")}
         )
 
         return jsonify({

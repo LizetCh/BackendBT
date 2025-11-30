@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from config.db import get_db
 from bson import ObjectId
 
@@ -301,12 +301,13 @@ def delete_review(review_id):
 
     # checar que haya iniciado sesión
     current_user = get_jwt_identity()
+    current_user_role = get_jwt()["role"]
     if not current_user:
         return jsonify({"error": "Usuario no autenticado"}), 401
 
     # checar que el review pertenezca al usuario o sea admin
     review = db.reviews.find_one({"_id": review_obj_id})
-    if str(review['user_id']) != current_user or current_user.role != 'admin':
+    if not (str(review['user_id']) == current_user or current_user_role == 'admin'):
         return jsonify({"error": "No tienes permiso para eliminar esta reseña"}), 403
 
     # borrar review (CORREGIDO: usando ObjectId)

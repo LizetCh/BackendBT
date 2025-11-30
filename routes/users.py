@@ -404,3 +404,30 @@ def add_hours():
         "message": f"Se agregaron {hours_float} horas a {updated_user['name']}",
         "user": serialize_user_safe(updated_user)
     }), 200
+
+# Obtener usuario por ID
+@users_bp.route('/<user_id>', methods=['GET'])
+def get_user_by_id(user_id):
+    db = get_db()
+
+    if db is None:
+        return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+
+    try:
+        user_obj_id = ObjectId(user_id)
+    except:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+    user = db.users.find_one({"_id": user_obj_id}, {
+        "_id": 1,
+        "name": 1,
+        "profile_image_url": 1,
+        "skills": 1
+    })
+
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    user['_id'] = str(user['_id']) 
+
+    return jsonify({"user": user}), 200

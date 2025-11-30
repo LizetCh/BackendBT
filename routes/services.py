@@ -29,6 +29,10 @@ def create_service():
     current_user = get_jwt_identity()
     data = request.get_json() or {}
 
+    # no jwt
+    if not current_user:
+        return jsonify({"error": "Usuario no autenticado"}), 401
+
     # Validación de campos requeridos
     required_fields = ['title', 'description',
                        'categories', 'hours', 'contact', 'location']

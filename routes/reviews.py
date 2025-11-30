@@ -90,20 +90,40 @@ def new_review():
 
     return jsonify({
         "mensaje": "Reseña creada",
-        "review_id": str(result.inserted_id),
+        "_id": str(result.inserted_id),
         "service_id": service_id,
         "user_id": user_id,
         "rating": rating,
         "comment": comment
     }), 201
 
+# obtener todas las reviews
 
-# obtener reviews de un servicio
-@reviews_bp.route('/service/<service_id>', methods=['GET'])
-def get_reviews_by_service(service_id):
+
+@reviews_bp.route('/', methods=['GET'])
+def get_all_reviews():
     # obtener base de datos
     db = get_db()
 
+    if db is None:
+        return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+
+    try:
+        reviews = list(db.reviews.find({}))
+
+        serialized_reviews = [serialize_doc(review) for review in reviews]
+
+        return jsonify({"reviews": serialized_reviews}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Error al obtener reseñas: {str(e)}"}), 500
+
+# obtener reviews de un servicio
+
+
+@reviews_bp.route('/service/<service_id>', methods=['GET'])
+def get_reviews_by_service(service_id):
+    db = get_db()
     if db is None:
         return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
 
@@ -112,14 +132,16 @@ def get_reviews_by_service(service_id):
     except:
         return jsonify({"error": "ID de servicio inválido"}), 400
 
-    # checar si existe el servicio (CORREGIDO)
     if not db.services.find_one({"_id": service_obj_id}):
         return jsonify({"error": "El servicio no existe"}), 400
 
-    # obtener reviews usando aggregate
     try:
         pipeline = [
-            {"$match": {"service_id": service_obj_id}},
+            {
+                "$match": {
+                    "service_id": {"$in": [service_obj_id]}
+                }
+            },
             {
                 "$lookup": {
                     "from": "users",
@@ -129,21 +151,24 @@ def get_reviews_by_service(service_id):
                 }
             },
             {"$unwind": "$user_info"},
-            {"$project": {
-                "_id": 0,
-                "service_id": {"$toString": "$service_id"},
-                "user_id": {"$toString": "$user_id"},
-                "rating": 1,
-                "comment": 1,
-                "user_email": "$user_info.email"
-            }
+            {
+                "$project": {
+                    "_id": {"$toString": "$_id"},
+                    "comment": 1,
+                    "rating": 1,
+                    "service_id": {"$toString": "$service_id"},
+                    "user_id": {"$toString": "$user_id"},
+                    "owner_name": "$user_info.name"
+                }
             }
         ]
+
         reviews = list(db.reviews.aggregate(pipeline))
+
+        return jsonify(reviews), 200
+
     except Exception as e:
         return jsonify({"error": f"Error al obtener reseñas: {str(e)}"}), 500
-
-    return jsonify({"reviews": reviews}), 200
 
 
 # obtener reviews de un usuario
@@ -188,10 +213,10 @@ def get_reviews_by_user(user_id):
             }
         ]
         reviews = list(db.reviews.aggregate(pipeline))
+        return jsonify({"reviews": reviews}), 200
     except Exception as e:
         return jsonify({"error": f"Error al obtener reseñas: {str(e)}"}), 500
 
-    return jsonify({"reviews": reviews}), 200
 
 # update review
 

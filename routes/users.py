@@ -422,16 +422,22 @@ def get_user_by_id(user_id):
     except:
         return jsonify({"error": "ID de usuario inválido"}), 400
 
-    user = db.users.find_one({"_id": user_obj_id}, {
-        "_id": 1,
-        "name": 1,
-        "profile_image_url": 1,
-        "skills": 1
-    })
+    # Traemos al usuario completo para poder filtrar campos
+    user = db.users.find_one({"_id": user_obj_id})
 
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    user['_id'] = str(user['_id'])
+    # Solo los campos necesarios para el modal
+    user_filtered = {
+        "_id": str(user["_id"]),
+        "name": user.get("name", ""),
+        "profile_image_url": user.get("profile_image_url", None),
+        "rating_avg": user.get("rating_avg", 0),
+        "rating_count": user.get("rating_count", 0),
+        "bio": user.get("bio", ""),
+        "skills": user.get("skills", [])
+    }
 
-    return jsonify({"user": user}), 200
+    return jsonify({"user": user_filtered}), 200
+

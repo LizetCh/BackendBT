@@ -109,7 +109,7 @@ def new_review():
                 # guardar en el usuario
                 db.users.update_one(
                     {"_id": owner_obj_id},
-                    {"$set": {"avg_rating": avg}}
+                    {"$set": {"rating_avg": avg}}
                 )
 
     return jsonify({

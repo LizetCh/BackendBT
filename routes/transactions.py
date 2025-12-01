@@ -22,10 +22,10 @@ def serialize_transaction(transaction):
 @transactions_bp.route('/create', methods=['POST'])
 @jwt_required()
 def create_transaction():
-    supplier_id = get_jwt_identity()  # proveedor inicia
+    #supplier_id = get_jwt_identity()  # proveedor inicia
     data = request.get_json() or {}
 
-    required_fields = ['service_id', 'client_id', 'hours']
+    required_fields = ['service_id', 'client_id', 'supplier_id', 'hours']
     missing = [f for f in required_fields if not data.get(f)]
     if missing:
         return jsonify({"error": f"Faltan campos: {', '.join(missing)}"}), 400
@@ -37,7 +37,7 @@ def create_transaction():
     try:
         service_id = ObjectId(data['service_id'])
         client_id = ObjectId(data['client_id'])
-        supplier_id_obj = ObjectId(supplier_id)
+        supplier_id_obj = ObjectId(data['supplier_id'])
         hours = float(data['hours'])
         if hours <= 0:
             return jsonify({"error": "Las horas deben ser mayores a 0"}), 400
@@ -62,7 +62,7 @@ def create_transaction():
         "supplier_id": supplier_id_obj,
         "client_id": client_id,
         "hours": hours,
-        "status_supplier": "accepted",  # proveedor acepta automáticamente
+        "status_supplier": "pending", 
         "status_client": "pending",
         "status_transaction": "pending",
         "created_at": datetime.utcnow()
@@ -101,9 +101,11 @@ def update_transaction(transaction_id):
 
     update_fields = {}
 
-    # Supplier solo puede actualizar status_supplier (ya aceptado automáticamente)
-    if 'status_supplier' in data:
-        return jsonify({"error": "El proveedor ya inició la transacción"}), 400
+    # Permitir que el proveedor acepte o rechace
+    if 'status_supplier' in data and str(transaction['supplier_id']) == str(current_user):
+        if data['status_supplier'] not in ['accepted', 'rejected']:
+            return jsonify({"error": "status_supplier inválido"}), 400
+        update_fields['status_supplier'] = data['status_supplier']
 
     # Client solo puede actualizar status_client
     if 'status_client' in data and str(transaction['client_id']) == str(current_user):
@@ -131,10 +133,30 @@ def update_transaction(transaction_id):
             update_fields['status_client'] = 'rejected'
 
     # Actualizar status_transaction
-    if update_fields.get('status_client') == 'accepted':
-        update_fields['status_transaction'] = 'completed'
-    elif update_fields.get('status_client') == 'rejected':
-        update_fields['status_transaction'] = 'cancelled'
+    # revisar si ambos ya respondieron
+    supplier_status = data.get('status_supplier', transaction.get('status_supplier'))
+    client_status = data.get('status_client', transaction.get('status_client'))
+
+    '''
+    if supplier_status != "pending" and client_status != "pending":
+        if supplier_status == "accepted" and client_status == "accepted":
+            update_fields["status_transaction"] = "completed"
+        else:
+            update_fields["status_transaction"] = "cancelled"
+    '''
+    # Solo resolver cuando AMBOS ya respondieron
+    supplier_responded = supplier_status in ["accepted", "rejected"]
+    client_responded = client_status in ["accepted", "rejected"]
+
+    if supplier_responded and client_responded:
+        if supplier_status == "accepted" and client_status == "accepted":
+            update_fields["status_transaction"] = "completed"
+        else:
+            update_fields["status_transaction"] = "cancelled"
+    else:
+        # Aún falta respuesta de uno → mantener pendiente
+        update_fields["status_transaction"] = "pending"
+
 
     if not update_fields:
         return jsonify({"error": "No hay campos para actualizar o no tienes permisos"}), 400
@@ -221,7 +243,7 @@ def delete_transaction(transaction_id):
 
 #Endpoints para la sección de Mis transacciones
 
-# Obtener transacciones pendientes del usuario (como cliente)
+# Obtener transacciones pendientes del usuario
 @transactions_bp.route('/user/pending', methods=['GET'])
 @jwt_required()
 def get_user_pending_transactions():

@@ -88,6 +88,30 @@ def new_review():
 
     result = db.reviews.insert_one(review)
 
+    # actualizar el avg_rating del usuario
+    service = db.services.find_one({"_id": service_obj_id})
+    owner_id = service.get("owner_id")
+    if owner_id:
+        try:
+            owner_obj_id = ObjectId(owner_id)
+        except:
+            owner_obj_id = None
+
+        if owner_obj_id:  # obtener todas las reviews del usuario
+            all_reviews = list(db.reviews.find({"service_id": {"$in": [
+                s["_id"] for s in db.services.find({"owner_id": owner_id})
+            ]}}))
+
+            if all_reviews:  # calcular promedio
+                avg = sum(r["rating"] for r in all_reviews) / len(all_reviews)
+                avg = round(avg, 1)
+
+                # guardar en el usuario
+                db.users.update_one(
+                    {"_id": owner_obj_id},
+                    {"$set": {"avg_rating": avg}}
+                )
+
     return jsonify({
         "mensaje": "Reseña creada",
         "_id": str(result.inserted_id),
